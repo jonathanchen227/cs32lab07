@@ -33,6 +33,14 @@ band_scan: band_scan.c filter.h signal.h timing.h libfilter.a
 p_band_scan: p_band_scan.c filter.h signal.h timing.h libfilter.a
 #	    $(CC) -pthread p_band_scan.c -L. -lfilter -lm -o p_band_scan
 #
+all: libfilter.a band_scan pthread-ex parallel-sum-ex p_band_scan
+
+p_band_scan: p_band_scan.o libfilter.a
+	$(CC) -o p_band_scan p_band_scan.o libfilter.a -lm -pthread
+
+p_band_scan.o: p_band_scan.c
+	$(CC) -c p_band_scan.c -pthread
+
 
 clean-filter:
 	-rm filter.o signal.o timing.o libfilter.a  band_scan 2>/dev/null || true

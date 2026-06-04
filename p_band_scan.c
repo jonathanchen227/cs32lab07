@@ -62,11 +62,17 @@ typedef struct {
 	int num_bands;
 	int thread_id;
 	int num_threads;
+	int num_processors;
 	double bandwidth;
 	double* band_power;
 } thread_arg;
 
 void* worker(void* arg ) {
+	cpu_set_t cpuset;
+	CPU_ZERO(&cpuset);
+	int cpu = a->thread_id % a->num_processors;
+	CPU_SET(cpu, &cpuset);
+	pthread_setaffinity_np(pthread_self(),sizeof(cpu_set_t),&cpuset);
 	thread_arg* a = (thread_arg* ) arg;
 	for ( int  band = a->thread_id; band < a->num_bands; band += a->num_threads ) { double filter_coeffs[a->filter_order + 1];
 	    generate_band_pass ( a->sig->Fs, band* a->bandwidth + 0.0001, (band + 1) * a->bandwidth - 0.0001 , a->filter_order, filter_coeffs);
@@ -76,7 +82,7 @@ void* worker(void* arg ) {
 	    return NULL;
 }
 
-int analyze_signal(signal* sig, int filter_order, int num_bands, int num_threads, double* lb, double* ub) {
+int analyze_signal(signal* sig, int filter_order, int num_bands, int num_threads,int num_processors, double* lb, double* ub) {
 
   double Fc        = (sig->Fs) / 2;
   double bandwidth = Fc / num_bands;
@@ -104,6 +110,7 @@ int analyze_signal(signal* sig, int filter_order, int num_bands, int num_threads
 	  args[i].num_threads = num_threads;
 	  args[i].bandwidth = bandwidth;
 	  args[i].band_power = band_power;
+	  args[i].num_processors = num_processors;
 	  pthread_create(&threads[i], NULL, worker, &args[i]);
   }
   for ( int i =0; i < num_threads; i++ ) {
@@ -241,7 +248,7 @@ bands:    %d\n",
 
   double start = 0;
   double end   = 0;
-  if (analyze_signal(sig, filter_order, num_bands,num_threads, &start, &end)) {
+  if (analyze_signal(sig, filter_order, num_bands,num_threads,num_processors, &start, &end)) {
     printf("POSSIBLE ALIENS %lf-%lf HZ (CENTER %lf HZ)\n", start, end, (end + start) / 2.0);
   } else {
     printf("no aliens\n");
