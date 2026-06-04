@@ -1,0 +1,10 @@
+declare -x KEEP_SLURM_WORK_DIR=false
+declare -x RENAMED_WORK_DIR_PATH=/cs/student/jonathanchen227/cs32/lab07/setilab-handout/seti-run-$SLURM_JOB_ID-eval-2026-06-04T00:54:40-07:00
+declare -x SETI_GOLDEN_DIR=/cs/faculty/nabeeln/public/seti-golden/seti-scripts-slurm
+declare -x SETI_HANDOUT_DIR=/cs/faculty/nabeeln/public/seti-golden/HANDOUT
+declare -x SETI_EVAL_OUTPUT_DIR=/cs/faculty/nabeeln/public/seti-golden/EVAL
+declare -x PERL5LIB=/cs/faculty/nabeeln/public/seti-golden/seti-scripts-slurm
+declare -x SETI_EVAL_TO_RUN='/cs/faculty/nabeeln/public/seti-golden/seti-scripts-slurm/seti-eval -n "jonathanchen227" -a 2'
+declare -x NETIDS=jonathanchen227
+declare -x SETI_HANDIN_DIR=/cs/faculty/nabeeln/public/seti-golden/HANDIN/setilab
+declare -x SETI_JOB_TYPE=eval
