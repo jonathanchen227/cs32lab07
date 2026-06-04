@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 #include <stdlib.h>
 #include <stdio.h>
 #include <ctype.h>
@@ -6,7 +7,7 @@
 #include "filter.h"
 #include "signal.h"
 #include "timing.h"
-
+#include <sched.h>
 #define MAXWIDTH 40
 #define THRESHOLD 2.0
 #define ALIENS_LOW  50000.0
@@ -68,12 +69,12 @@ typedef struct {
 } thread_arg;
 
 void* worker(void* arg ) {
+	thread_arg* a = (thread_arg*) arg;
 	cpu_set_t cpuset;
 	CPU_ZERO(&cpuset);
 	int cpu = a->thread_id % a->num_processors;
 	CPU_SET(cpu, &cpuset);
 	pthread_setaffinity_np(pthread_self(),sizeof(cpu_set_t),&cpuset);
-	thread_arg* a = (thread_arg* ) arg;
 	for ( int  band = a->thread_id; band < a->num_bands; band += a->num_threads ) { double filter_coeffs[a->filter_order + 1];
 	    generate_band_pass ( a->sig->Fs, band* a->bandwidth + 0.0001, (band + 1) * a->bandwidth - 0.0001 , a->filter_order, filter_coeffs);
 	    hamming_window ( a-> filter_order, filter_coeffs);
