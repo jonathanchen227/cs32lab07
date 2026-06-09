@@ -1,11 +1,8 @@
-#define _GNU_SOURCE
 #include <stdlib.h>
 #include <stdio.h>
 #include <ctype.h>
 #include <assert.h>
-#include <pthread.h>
-#include <sched.h>
-#include <unistd.h>
+
 #include "filter.h"
 #include "signal.h"
 #include "timing.h"
@@ -16,7 +13,7 @@
 #define ALIENS_HIGH 150000.0
 
 void usage() {
-  printf("usage: band_scan text|bin|mmap signal_file Fs filter_order num_bands num_threads num_processors\n");
+  printf("usage: band_scan text|bin|mmap signal_file Fs filter_order num_bands\n");
 }
 
 double avg_power(double* data, int num) {
@@ -59,33 +56,9 @@ void remove_dc(double* data, int num) {
     data[i] -= dc;
   }
 }
-typedef struct {
-	signal* sig;
-	int filter_order;
-	int num_bands;
-	int thread_id;
-	int num_threads;
-	int num_processors;
-	double bandwidth;
-	double* band_power;
-} thread_arg;
 
-void* worker(void* arg ) {
-	thread_arg* a = (thread_arg*) arg;
-	cpu_set_t cpuset;
-	CPU_ZERO(&cpuset);
-	int cpu = a->thread_id % a->num_processors;
-	CPU_SET(cpu, &cpuset);
-	pthread_setaffinity_np(pthread_self(),sizeof(cpu_set_t),&cpuset);
-	for ( int  band = a->thread_id; band < a->num_bands; band += a->num_threads ) { double filter_coeffs[a->filter_order + 1];
-	    generate_band_pass ( a->sig->Fs, band* a->bandwidth + 0.0001, (band + 1) * a->bandwidth - 0.0001 , a->filter_order, filter_coeffs);
-	    hamming_window ( a-> filter_order, filter_coeffs);
-	    convolve_and_compute_power(a->sig->num_samples, a->sig->data, a->filter_order, filter_coeffs, &(a->band_power[band]));
-	    }
-	    return NULL;
-}
 
-int analyze_signal(signal* sig, int filter_order, int num_bands, int num_threads,int num_processors, double* lb, double* ub) {
+int analyze_signal(signal* sig, int filter_order, int num_bands, double* lb, double* ub) {
 
   double Fc        = (sig->Fs) / 2;
   double bandwidth = Fc / num_bands;
@@ -103,21 +76,22 @@ int analyze_signal(signal* sig, int filter_order, int num_bands, int num_threads
 
   double filter_coeffs[filter_order + 1];
   double band_power[num_bands];
-  pthread_t threads[num_threads];
-  thread_arg args[num_threads];
-  for ( int i = 0 ; i < num_threads ; i ++ ) {
-	  args[i].sig = sig;
-	  args[i].filter_order = filter_order;
-	  args[i].num_bands = num_bands;
-	  args[i].thread_id = i ;
-	  args[i].num_threads = num_threads;
-	  args[i].bandwidth = bandwidth;
-	  args[i].band_power = band_power;
-	  args[i].num_processors = num_processors;
-	  pthread_create(&threads[i], NULL, worker, &args[i]);
-  }
-  for ( int i =0; i < num_threads; i++ ) {
-	  pthread_join(threads[i],NULL);
+  for (int band = 0; band < num_bands; band++) {
+    // Make the filter
+    generate_band_pass(sig->Fs,
+                       band * bandwidth + 0.0001, // keep within limits
+                       (band + 1) * bandwidth - 0.0001,
+                       filter_order,
+                       filter_coeffs);
+    hamming_window(filter_order,filter_coeffs);
+
+    // Convolve
+    convolve_and_compute_power(sig->num_samples,
+                               sig->data,
+                               filter_order,
+                               filter_coeffs,
+                               &(band_power[band]));
+
   }
 
   unsigned long long tend = get_cycle_count();
@@ -194,7 +168,7 @@ Context switches %ld\n",
 
 int main(int argc, char* argv[]) {
 
-  if (argc != 8) {
+  if (argc != 6) {
     usage();
     return -1;
   }
@@ -204,8 +178,7 @@ int main(int argc, char* argv[]) {
   double Fs        = atof(argv[3]);
   int filter_order = atoi(argv[4]);
   int num_bands    = atoi(argv[5]);
-  int num_threads = atoi(argv[6]);
-  int num_processors = atoi(argv[7]);
+
   assert(Fs > 0.0);
   assert(filter_order > 0 && !(filter_order & 0x1));
   assert(num_bands > 0);
@@ -251,7 +224,7 @@ bands:    %d\n",
 
   double start = 0;
   double end   = 0;
-  if (analyze_signal(sig, filter_order, num_bands,num_threads,num_processors, &start, &end)) {
+  if (analyze_signal(sig, filter_order, num_bands, &start, &end)) {
     printf("POSSIBLE ALIENS %lf-%lf HZ (CENTER %lf HZ)\n", start, end, (end + start) / 2.0);
   } else {
     printf("no aliens\n");

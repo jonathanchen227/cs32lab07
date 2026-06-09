@@ -4,19 +4,17 @@
 #include <ctype.h>
 #include <assert.h>
 #include <pthread.h>
-#include <sched.h>
-#include <unistd.h>
 #include "filter.h"
 #include "signal.h"
 #include "timing.h"
-
+#include <sched.h>
 #define MAXWIDTH 40
 #define THRESHOLD 2.0
 #define ALIENS_LOW  50000.0
 #define ALIENS_HIGH 150000.0
 
 void usage() {
-  printf("usage: band_scan text|bin|mmap signal_file Fs filter_order num_bands num_threads num_processors\n");
+  printf("usage: band_scan text|bin|mmap signal_file Fs filter_order num_bands\n");
 }
 
 double avg_power(double* data, int num) {
